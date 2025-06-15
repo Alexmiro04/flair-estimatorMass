@@ -1,7 +1,7 @@
 # estimatorMass Project
 
 ## Overview
-The `estimatorMass` project provides a framework for developing custom controllers for UAVs based on FlAIR. It includes a skeleton structure for the project, with the `myCtrl` directory containing a customizable controller. In this example, the controller implements a PID-based position controller (with gravity compensation) and an attitude controller. The project also includes utilities for controller saturation and motor constant conversion. The example task becomes from the CircleFollower demo.
+The `estimatorMass` project is based on a UAV linear model which control do not know the mass of the drone.  The estimation is based on a upadate law.
 
 ## File Structure
 - **`uav/src/estimatorMass`**: This class contains the skeleton of the project.
