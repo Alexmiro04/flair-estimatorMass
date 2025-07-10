@@ -1,0 +1,12 @@
+<!DOCTYPE remote_ui_xml>
+<root name="Drone_0">
+ <TabWidget name="Main_TabWidget">
+  <Tab name="uav">
+   <GridLayout name="buttons">
+    <GroupBox name="Custom task">
+     <Vector3DSpinBox value_x="0.5" value_y="0.5" value_z="1.000" name="Desired position"/>
+    </GroupBox>
+   </GridLayout>
+  </Tab>
+ </TabWidget>
+</root>

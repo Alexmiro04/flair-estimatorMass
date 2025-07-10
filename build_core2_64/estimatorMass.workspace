@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<CodeLite_Workspace Name="estimatorMass">
+	<Project Name="estimatorMass_simulator_nrt" Path="simulator/estimatorMass_simulator_nrt.project" Active="No"/>
+	<Project Name="estimatorMass_simulator_rt" Path="simulator/estimatorMass_simulator_rt.project" Active="No"/>
+	<Project Name="estimatorMass_nrt" Path="uav/estimatorMass_nrt.project" Active="No"/>
+	<Project Name="estimatorMass_rt" Path="uav/estimatorMass_rt.project" Active="No"/>
+	<BuildMatrix>
+		<WorkspaceConfiguration Name="NoConfig" Selected="yes">
+			<Project Name="install/local" ConfigName="NoConfig"/>
+			<Project Name="install" ConfigName="NoConfig"/>
+			<Project Name="list_install_components" ConfigName="NoConfig"/>
+			<Project Name="rebuild_cache" ConfigName="NoConfig"/>
+			<Project Name="edit_cache" ConfigName="NoConfig"/>
+			<Project Name="install/local" ConfigName="NoConfig"/>
+			<Project Name="install" ConfigName="NoConfig"/>
+			<Project Name="list_install_components" ConfigName="NoConfig"/>
+			<Project Name="edit_cache" ConfigName="NoConfig"/>
+			<Project Name="estimatorMass_simulator_overwrite_xml_resources_in_install_dir" ConfigName="NoConfig"/>
+			<Project Name="estimatorMass_simulator_overwrite_sh_resources_in_install_dir" ConfigName="NoConfig"/>
+			<Project Name="estimatorMass_simulator_nrt" ConfigName="NoConfig"/>
+			<Project Name="rebuild_cache" ConfigName="NoConfig"/>
+			<Project Name="estimatorMass_simulator_overwrite_all_resources_in_install_dir" ConfigName="NoConfig"/>
+			<Project Name="estimatorMass_simulator_rt" ConfigName="NoConfig"/>
+			<Project Name="edit_cache" ConfigName="NoConfig"/>
+			<Project Name="install/local" ConfigName="NoConfig"/>
+			<Project Name="estimatorMass_overwrite_xml_resources_in_install_dir" ConfigName="NoConfig"/>
+			<Project Name="estimatorMass_overwrite_sh_resources_in_install_dir" ConfigName="NoConfig"/>
+			<Project Name="estimatorMass_overwrite_all_resources_in_install_dir" ConfigName="NoConfig"/>
+			<Project Name="install" ConfigName="NoConfig"/>
+			<Project Name="list_install_components" ConfigName="NoConfig"/>
+			<Project Name="estimatorMass_nrt" ConfigName="NoConfig"/>
+			<Project Name="rebuild_cache" ConfigName="NoConfig"/>
+			<Project Name="estimatorMass_rt" ConfigName="NoConfig"/>
+		</WorkspaceConfiguration>
+	</BuildMatrix>
+</CodeLite_Workspace>

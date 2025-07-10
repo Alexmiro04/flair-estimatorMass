@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="utf-8"?>
+<CodeLite_Project Name="estimatorMass_nrt" InternalType="">
+	<VirtualDirectory Name="src">
+		<File Name="../../uav/src/estimatorMass.cpp"/>
+		<File Name="../../uav/src/main.cpp"/>
+		<File Name="../../uav/src/myCtrl.cpp"/>
+	</VirtualDirectory>
+	<VirtualDirectory Name="include">
+		<File Name="../../uav/src/estimatorMass.h"/>
+		<File Name="../../uav/src/myCtrl.h"/>
+	</VirtualDirectory>
+	<Settings Type="Executable">
+		<Configuration Name="NoConfig" CompilerType="gnu g++" DebuggerType="GNU gdb debugger" Type="Executable" BuildCmpWithGlobalSettings="append" BuildLnkWithGlobalSettings="append" BuildResWithGlobalSettings="append">
+			<Compiler Options="-g" Required="yes" PreCompiledHeader="">
+				<IncludePath Value="."/>
+			</Compiler>
+			<Linker Options="" Required="yes"/>
+			<ResourceCompiler Options="" Required="no"/>
+			<General OutputFile="$(IntermediateDirectory)/$(ProjectName)" IntermediateDirectory="./" Command="./$(ProjectName)" CommandArguments="" WorkingDirectory="$(IntermediateDirectory)" PauseExecWhenProcTerminates="yes"/>
+			<Debugger IsRemote="no" RemoteHostName="" RemoteHostPort="" DebuggerPath="">
+				<PostConnectCommands/>
+				<StartupCommands/>
+			</Debugger>
+			<PreBuild/>
+			<PostBuild/>
+			<CustomBuild Enabled="yes">
+				<Target Name="install/local">/usr/bin/make -j 8 install/local</Target>
+				<Target Name="install">/usr/bin/make -j 8 install</Target>
+				<Target Name="delivery_root_192.168.147.63_bin_estimatorMass_rt">/usr/bin/make -j 8 delivery_root_192.168.147.63_bin_estimatorMass_rt</Target>
+				<Target Name="delivery_root_192.168.147.63_bin_estimatorMass_nrt">/usr/bin/make -j 8 delivery_root_192.168.147.63_bin_estimatorMass_nrt</Target>
+				<Target Name="rebuild_cache">/usr/bin/make -j 8 rebuild_cache</Target>
+				<RebuildCommand>/usr/bin/make -j 8 clean &amp;&amp; /usr/bin/make -j 8</RebuildCommand>
+				<CleanCommand>/usr/bin/make -j 8 clean</CleanCommand>
+				<BuildCommand>/usr/bin/make -j 8</BuildCommand>
+				<SingleFileCommand>/usr/bin/make -f$(ProjectPath)/Makefile $(CurrentFileName).cpp.o</SingleFileCommand>
+				<PreprocessFileCommand/>
+				<WorkingDirectory>$(ProjectPath)</WorkingDirectory>
+				<RebuildCommand>/usr/bin/make -j 8 clean &amp;&amp; /usr/bin/make -j 8</RebuildCommand>
+				<CleanCommand>/usr/bin/make -j 8 clean</CleanCommand>
+				<BuildCommand>/usr/bin/make -j 8</BuildCommand>
+				<SingleFileCommand>/usr/bin/make -f$(ProjectPath)/Makefile $(CurrentFileName).cpp.o</SingleFileCommand>
+				<PreprocessFileCommand/>
+				<WorkingDirectory>$(ProjectPath)</WorkingDirectory>
+				<Target Name="list_install_components">/usr/bin/make -j 8 list_install_components</Target>
+				<Target Name="estimatorMass_overwrite_all_resources_in_install_dir">/usr/bin/make -j 8 estimatorMass_overwrite_all_resources_in_install_dir</Target>
+				<Target Name="estimatorMass_overwrite_sh_resources_in_install_dir">/usr/bin/make -j 8 estimatorMass_overwrite_sh_resources_in_install_dir</Target>
+				<Target Name="estimatorMass_overwrite_xml_resources_in_install_dir">/usr/bin/make -j 8 estimatorMass_overwrite_xml_resources_in_install_dir</Target>
+				<Target Name="edit_cache">/usr/bin/make -j 8 edit_cache</Target>
+			</CustomBuild>
+			<Completion EnableCpp11="yes" EnableCpp14="yes">
+				<SearchPaths>/home/alexmiro/flair/flair-install/include/FlairCore
+/home/alexmiro/flair/flair-install/include/FlairSensorActuator
+/home/alexmiro/flair/flair-install/include/HdsSensorActuator
+/home/alexmiro/flair/flair-install/include/FlairFilter
+/home/alexmiro/flair/flair-install/include/FlairMeta
+/opt/robomap3/2.1.3/armv7a-neon/sysroots/x86_64-pokysdk-linux/usr/lib/arm-poky-linux-gnueabi/gcc/arm-poky-linux-gnueabi/4.9.3/include
+/opt/robomap3/2.1.3/armv7a-neon/sysroots/x86_64-pokysdk-linux/usr/lib/arm-poky-linux-gnueabi/gcc/arm-poky-linux-gnueabi/4.9.3/include-fixed
+</SearchPaths>
+				<SearchPaths>/home/alexmiro/flair/flair-install/include/FlairCore
+/home/alexmiro/flair/flair-install/include/FlairSensorActuator
+/home/alexmiro/flair/flair-install/include/HdsSensorActuator
+/home/alexmiro/flair/flair-install/include/FlairFilter
+/home/alexmiro/flair/flair-install/include/FlairMeta
+/opt/robomap3/2.1.3/armv7a-neon/sysroots/x86_64-pokysdk-linux/usr/lib/arm-poky-linux-gnueabi/gcc/arm-poky-linux-gnueabi/4.9.3/include
+/opt/robomap3/2.1.3/armv7a-neon/sysroots/x86_64-pokysdk-linux/usr/lib/arm-poky-linux-gnueabi/gcc/arm-poky-linux-gnueabi/4.9.3/include-fixed
+</SearchPaths>
+			</Completion>
+			<AdditionalRules>
+				<CustomPostBuild/>
+				<CustomPreBuild/>
+			</AdditionalRules>
+		</Configuration>
+		<GlobalSettings>
+			<Compiler Options="">
+				<IncludePath Value="."/>
+			</Compiler>
+			<Linker Options="">
+				<LibraryPath Value="."/>
+			</Linker>
+			<ResourceCompiler Options=""/>
+		</GlobalSettings>
+	</Settings>
+</CodeLite_Project>

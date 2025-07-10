@@ -1,0 +1,12 @@
+<!DOCTYPE remote_ui_xml>
+<root name="Drone_0">
+ <TabWidget name="Main_TabWidget">
+  <Tab name="Custom controller">
+   <GroupBox name="PID controller">
+    <GroupBox name="General parameters">
+     <DoubleSpinBox value="1.3" name="Mass [kg]"/>
+    </GroupBox>
+   </GroupBox>
+  </Tab>
+ </TabWidget>
+</root>
