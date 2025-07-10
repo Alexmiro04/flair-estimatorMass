@@ -33,6 +33,7 @@
 #include <DoubleSpinBox.h>
 #include <Vector3DSpinBox.h>
 #include <iostream>
+#include <Vector2D.h>
 
 using namespace std;
 using namespace flair::core;
@@ -144,6 +145,27 @@ void estimatorMass::ComputeCustomTorques(Euler &torques)
 
 void estimatorMass::computeMyCtrl(Euler &torques)
 {
+
+    if (behaviourMode == BehaviourMode_t::GoToCircleStart) {
+        Vector3Df uav_pos;
+        uavVrpn->GetPosition(uav_pos);
+        Vector2Df uav_2Dpos;
+        uav_pos.To2Dxy(uav_2Dpos);
+
+        Vector2Df pos_error2D = uav_2Dpos - initial_circle_pos;
+        float distancia = pos_error2D.GetNorm();
+
+        if (distancia < 0.2) { // 20 cm de tolerancia
+        circle->SetCenter(circle_center); // Usa el centro guardado
+        circle->StartTraj(initial_circle_pos, 1);
+        uX->Reset();
+        uY->Reset();
+        behaviourMode = BehaviourMode_t::Circle;
+        Thread::Info("estimatorMass: reached initial position, starting circle\n");
+    }
+    return;
+    }
+
     // Get position, velocity and quaternion from the VRPN object in its coordinate system
     Vector3Df uav_pos, uav_vel; 
     Quaternion vrpn_quaternion;
@@ -176,6 +198,28 @@ void estimatorMass::computeMyCtrl(Euler &torques)
     Vector3Df pos_error = Vector3Df(pos_error2D.x, pos_error2D.y, z-altittude_desired);
     Vector3Df vel_error = Vector3Df(vel_error2D.x, vel_error2D.y, dz);
 
+    // Make on circle trajectory if the behaviour mode is Circle
+    if (behaviourMode == BehaviourMode_t::Circle && circle->IsRunning()) {
+    Vector2Df center, pos;
+    circle->GetCenter(center);
+    circle->GetPosition(pos);
+    float angle = atan2f(pos.y - center.y, pos.x - center.x);
+    if (!initial_circle_traj) {
+        initial_angle = angle;
+        initial_circle_traj = true;
+    }
+    float delta_angle = angle - initial_angle;
+    // Ajusta el delta para que siempre sea positivo y cuente bien la vuelta
+    if (delta_angle < 0) delta_angle += 2*M_PI;
+    if (delta_angle >= 2*M_PI) {
+        circle->FinishTraj();
+        behaviourMode = BehaviourMode_t::Hover; // O Regulation, según prefieras
+        initial_circle_traj = false;
+        Thread::Info("estimatorMass: one circle made\n");
+    }
+} else {
+    initial_circle_traj = false;
+}
     // Set the values of the custom controller and update it
     myCtrl->SetValues(pos_error, vel_error, mixQuaternion, currentAngularSpeed, yaw_ref, acceleration2D.x, acceleration2D.y, 0);
     myCtrl->Update(GetTime());
@@ -215,7 +259,7 @@ void estimatorMass::StartCustomTorques(void)
         if(SetTorqueMode(TorqueMode_t::Custom) && SetThrustMode(ThrustMode_t::Custom) && control_selection->CurrentIndex() != 0)
         {
             controlMode_t = ControlMode_t::Custom;
-            myCtrl->Reset();
+            // myCtrl->Reset();
             Start_task();
             Thread::Info("estimatorMass: custom control law started\n");
         }
@@ -328,11 +372,15 @@ void estimatorMass::PositionValues(Vector2Df &pos_error,Vector2Df &vel_error,flo
         pos_error=uav_2Dpos-posHold;
         vel_error=uav_2Dvel;
         yaw_ref=yawHold;
+        circle_acc.x = 0.0f; // Circle acceleration is not used in PositionHold mode (Remove if not work)
+        circle_acc.y = 0.0f;
     } 
     else if (behaviourMode==BehaviourMode_t::Hover) {
         pos_error=uav_2Dpos;
         vel_error=uav_2Dvel;
         yaw_ref=0;
+        circle_acc.x = 0.0f; // Circle acceleration is not used in Hover mode (Remove if not work)
+        circle_acc.y = 0.0f;
     } 
     else if (behaviourMode==BehaviourMode_t::Regulation) {
         Vector2Df desired_position_xy(desired_position->Value().x, desired_position->Value().y);
@@ -346,7 +394,7 @@ void estimatorMass::PositionValues(Vector2Df &pos_error,Vector2Df &vel_error,flo
     }
     else { //Circle
         Vector3Df target_pos;
-        Vector2Df circle_pos,circle_vel; //,circle_acc;
+        Vector2Df circle_pos,circle_vel, circle_acc_ref; //,circle_acc;
         Vector2Df target_2Dpos;
 
         targetVrpn->GetPosition(target_pos);
@@ -363,7 +411,9 @@ void estimatorMass::PositionValues(Vector2Df &pos_error,Vector2Df &vel_error,flo
         pos_error=uav_2Dpos-circle_pos;
         vel_error=uav_2Dvel-circle_vel;
         //acc_error=uav_2Dacc-circle_acc; // if you want to use acceleration
-        yaw_ref=atan2(target_pos.y-uav_pos.y,target_pos.x-uav_pos.x);
+        //yaw_ref=atan2(target_pos.y-uav_pos.y,target_pos.x-uav_pos.x);
+        yaw_ref = 0;
+        circle_acc = circle_acc_ref;
 
     }
 
@@ -482,22 +532,34 @@ void estimatorMass::Start_task(void) {
         behaviourMode=BehaviourMode_t::Regulation;
         Thread::Info("estimatorMass: regulation task\n");
     }
+    // else if (task_selection->CurrentIndex() == 2) {
+    //    Vector3Df uav_pos,target_pos;
+    //    Vector2Df uav_2Dpos,target_2Dpos;
+
+    //    targetVrpn->GetPosition(target_pos);
+    //    target_pos.To2Dxy(target_2Dpos);
+    //    circle->SetCenter(target_2Dpos);
+
+    //    uavVrpn->GetPosition(uav_pos);
+    //    uav_pos.To2Dxy(uav_2Dpos);
+    //    circle->StartTraj(uav_2Dpos, 1); // One lap
+
+    //    uX->Reset();
+    //    uY->Reset();
+    //    behaviourMode=BehaviourMode_t::Circle;
+    //    Thread::Info("estimatorMass: circle tracking\n");
+    //}
+
     else if (task_selection->CurrentIndex() == 2) {
-        Vector3Df uav_pos,target_pos;
-        Vector2Df uav_2Dpos,target_2Dpos;
+        Vector3Df uav_pos, target_pos;;
+        uavVrpn->GetPosition(uav_pos);
+        uav_pos.To2Dxy(initial_circle_pos); // Guarda la posición actual como punto de partida
 
         targetVrpn->GetPosition(target_pos);
-        target_pos.To2Dxy(target_2Dpos);
-        circle->SetCenter(target_2Dpos);
+        target_pos.To2Dxy(circle_center);   // Guarda el centro del círculo
 
-        uavVrpn->GetPosition(uav_pos);
-        uav_pos.To2Dxy(uav_2Dpos);
-        circle->StartTraj(uav_2Dpos);
-
-        uX->Reset();
-        uY->Reset();
-        behaviourMode=BehaviourMode_t::Circle;
-        Thread::Info("estimatorMass: circle tracking\n");
+        behaviourMode = BehaviourMode_t::GoToCircleStart;
+        Thread::Info("estimatorMass: go to initial circle position\n");
     }
     else {
         Thread::Err("estimatorMass: unknown task\n");

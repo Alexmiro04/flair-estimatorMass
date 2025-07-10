@@ -47,9 +47,9 @@ namespace flair {
                 float m_hat;
                 bool first_update;
 
-                flair::core::Matrix *state, *massMatrix, *errorMatrix;
+                flair::core::Matrix *state;
                 flair::gui::Vector3DSpinBox *Kp_pos, *Kd_pos, *Ki_pos, *Kp_att, *Kd_att, *Ki_att;
-                flair::gui::DoubleSpinBox *deltaT_custom, *mass, *k_motor, *sat_pos, *sat_att, *sat_thrust,*km;
+                flair::gui::DoubleSpinBox *deltaT_custom, *mass, *k_motor, *sat_pos, *sat_att, *sat_thrust,*km, *m_init, *mass_ref;
                 flair::gui::DataPlot1D *massPlot, *errorPlot;
                 flair::gui::PushButton *resetMassButton;
         };

@@ -15,6 +15,7 @@
 
 #include <UavStateMachine.h>
 #include "myCtrl.h"
+#include <Vector2D.h>
 
 namespace flair {
     namespace gui {
@@ -44,9 +45,14 @@ class estimatorMass : public flair::meta::UavStateMachine {
 
     private:
 
+    bool initial_circle_traj = false;
+    float initial_angle = 0.0f;
+    flair::core::Vector2Df initial_circle_pos, circle_center;
+
 	enum class BehaviourMode_t {
             Default,
             PositionHold,
+            GoToCircleStart,
             Circle, 
             Regulation, 
             Hover

@@ -30,14 +30,18 @@ MyController::MyController(const LayoutPosition *position, const string &name) :
     input = new Matrix(this, 4, 6, floatType, name);
 
     // Matrix descriptor for logging. It should be always a nx1 matrix. 
-    MatrixDescriptor *log_labels = new MatrixDescriptor(3, 1);
+    MatrixDescriptor *log_labels = new MatrixDescriptor(7, 1);
     log_labels->SetElementName(0, 0, "x_error");
     log_labels->SetElementName(1, 0, "y_error");
-    log_labels->SetElementName(2, 0, "yaw_error");
+    log_labels->SetElementName(2, 0, "z_error");
+    log_labels->SetElementName(3, 0, "yaw_error");
+    log_labels->SetElementName(4, 0, "mass_ref");
+    log_labels->SetElementName(5, 0, "mass_estimated");
+    log_labels->SetElementName(6, 0, "mass_error");
     state = new Matrix(this, log_labels, floatType, name);
     delete log_labels;
 
-    m_hat = 0.9;       // initial value of mass   
+    // m_hat = 0.9;       // initial value of mass   
 
     //Kp.x = 7.5;   Kp.y = 7.5;   Kp.z = 15.5;  
     //Kd.x = 7;   Kd.y = 7;   Kd.z = 10;   
@@ -48,12 +52,14 @@ MyController::MyController(const LayoutPosition *position, const string &name) :
     GroupBox *gui_customPID = new GroupBox(position, name);
     GroupBox *general_parameters = new GroupBox(gui_customPID->NewRow(), "General parameters");
     deltaT_custom = new DoubleSpinBox(general_parameters->NewRow(), "Custom dt [s]", 0, 1, 0.001, 4);
-    mass = new DoubleSpinBox(general_parameters->LastRowLastCol(), "Mass [kg]", 0, 10, 0.01, 4, 0.436);
+    mass = new DoubleSpinBox(general_parameters->LastRowLastCol(), "Mass [kg]", 0, 10, 0.01, 4, 1.2);
     k_motor = new DoubleSpinBox(general_parameters->LastRowLastCol(), "Motor constant", 0, 50, 0.01, 4, 29.5870);
     sat_pos = new DoubleSpinBox(general_parameters->NewRow(), "Saturation pos", 0, 10, 0.01, 3);
     sat_att = new DoubleSpinBox(general_parameters->LastRowLastCol(), "Saturation att", 0, 10, 0.01, 3);
     sat_thrust = new DoubleSpinBox(general_parameters->LastRowLastCol(), "Saturation thrust", 0, 10, 0.01, 3);
     km = new DoubleSpinBox(general_parameters->NewRow(), "Km adaptation", 0, 5, 0.01, 4, 0.1);
+    m_init = new DoubleSpinBox(general_parameters->LastRowLastCol(), "Initial mass [kg]", 0, 10, 0.01, 4, 1.2);
+    mass_ref = new DoubleSpinBox(general_parameters->LastRowLastCol(), "Mass reference [kg]", 0, 10, 0.01, 4, 1.2);
 
     // Custom cartesian position controller
     GroupBox *custom_position = new GroupBox(gui_customPID->NewRow(), "Custom position controller");
@@ -67,26 +73,15 @@ MyController::MyController(const LayoutPosition *position, const string &name) :
     Kd_att = new Vector3DSpinBox(custom_attitude->LastRowLastCol(), "Kd_att", 0, 100, 0.1, 3);
     Ki_att = new Vector3DSpinBox(custom_attitude->LastRowLastCol(), "Ki_att", 0, 100, 0.1, 3);
 
-    // Matrix and DataPlot for mass estimation
-    MatrixDescriptor *mass_desc = new MatrixDescriptor(2, 1);
-    mass_desc->SetElementName(0, 0, "mass_real");
-    mass_desc->SetElementName(1, 0, "mass_estimated");
-    massMatrix = new Matrix(this, mass_desc, floatType, name + "_massMatrix");
-    delete mass_desc;
 
-    // Error estimation matrix
-    MatrixDescriptor *error_desc = new MatrixDescriptor(1, 1);
-    error_desc->SetElementName(0, 0, "error_m");
-    errorMatrix = new Matrix(this, error_desc, floatType, name + "_errorMatrix");
-    delete error_desc;
 
     // Visualize on real time plot
-    massPlot = new DataPlot1D(gui_customPID->NewRow(), "Mass Estimation", 0.0f, 5.0f);
-    massPlot->AddCurve(massMatrix->Element(0, 0), DataPlot::Red, "Real Mass");
-    massPlot->AddCurve(massMatrix->Element(1, 0), DataPlot::Blue, "Estimated Mass");
+    massPlot = new DataPlot1D(gui_customPID->NewRow(), "Mass Estimation", 0.0f, 2.0f);
+    massPlot->AddCurve(state->Element(4, 0), DataPlot::Red, "Ref Mass");
+    massPlot->AddCurve(state->Element(5, 0), DataPlot::Blue, "Estimated Mass");
 
-    errorPlot = new DataPlot1D(gui_customPID->LastRowLastCol(), "Error Estimation", -2.0f, 2.0f);
-    errorPlot->AddCurve(errorMatrix->Element(0, 0), DataPlot::Red, "Error m");
+    errorPlot = new DataPlot1D(gui_customPID->LastRowLastCol(), "Error Estimation", -1.0f, 1.0f);
+    errorPlot->AddCurve(state->Element(6, 0), DataPlot::Red, "Error m");
 
 
     resetMassButton = new PushButton(gui_customPID->NewRow(), "Reset Mass Estimation");
@@ -119,11 +114,13 @@ void MyController::UpdateFrom(const io_data *data)
     {
         initial_time = double(GetTime())/1000000000;
         first_update = false;
+
+        m_hat = m_init->Value(); // Set initial mass estimation
     }
 
     if (resetMassButton->Clicked()) 
     {
-        m_hat = 0.9f; // Reset estimated mass to zero
+        m_hat = m_init->Value(); // Reset estimated mass to initial value
     }
  
 
@@ -155,21 +152,8 @@ void MyController::UpdateFrom(const io_data *data)
     // Integration part (Euler method)
     m_hat += m_hat_dot * delta_t;
 
-    // Graphical representation of mass estimation and real mass
-    massMatrix->GetMutex();
-    massMatrix->SetValueNoMutex(0, 0, mass->Value()); // Real mass
-    massMatrix->SetValueNoMutex(1, 0, m_hat); // Estimated mass
-    massMatrix->ReleaseMutex();
-    massMatrix->SetDataTime(data->DataTime());
-
-    // Graphical representation of error estimation
-    float m_tilde = mass->Value() - m_hat; // Error in mass estimation
-    errorMatrix->GetMutex();
-    errorMatrix->SetValueNoMutex(0, 0, m_tilde); // Error in mass estimation
-    errorMatrix->ReleaseMutex();
-    errorMatrix->SetDataTime(data->DataTime());
-
-    std::cout << "m_hat: " << m_hat << " m_tilde: " << m_tilde << std::endl; // Print the error in mass estimation
+   
+    // std::cout << "m_hat: " << m_hat << " m_tilde: " << m_tilde << std::endl; // Print the error in mass estimation
 
     // Cartesian custom controller
 
@@ -200,7 +184,7 @@ void MyController::UpdateFrom(const io_data *data)
     u.Saturate(sat_pos->Value());
 
     
-
+    std::cout << "error x: " << pos_error.x << " error y: " << pos_error.y << " error z: " << pos_error.z << std::endl;
 
     // Attitude custom controller
     Euler rpy = q.ToEuler();    
@@ -211,7 +195,8 @@ void MyController::UpdateFrom(const io_data *data)
     tau.Saturate(sat_att->Value());
 
     // Compute custom thrust
-    float comp_mg = -mass->Value()*g; // This is the thrust needed to counteract gravity. Based on the default PID, it should be -0.397918 in Fl-Air simulator.  
+    //float comp_mg = -mass->Value()*g; // This is the thrust needed to counteract gravity. Based on the default PID, it should be -0.397918 in Fl-Air simulator.  
+    float comp_mg = -m_hat*g; // This is the thrust needed to counteract gravity. Based on the default PID, it should be -0.397918 in Fl-Air simulator.  
     thrust = comp_mg + ctrl_z; // This is the thrust needed to counteract gravity and control the z position
     applyMotorConstant(thrust);
     //if(thrust < -sat_att->Value())
@@ -249,7 +234,12 @@ void MyController::UpdateFrom(const io_data *data)
     state->GetMutex();
     state->SetValue(0, 0, pos_error.x);
     state->SetValue(1, 0, pos_error.y);
-    state->SetValue(2, 0, rpy.YawDistanceFrom(0));
+    state->SetValue(2, 0, pos_error.z);
+    state->SetValue(3, 0, rpy.YawDistanceFrom(0));
+    state->SetValue(4, 0, mass_ref->Value()); // Reference mass
+    state->SetValue(5, 0, m_hat); // Estimated mass
+    state->SetValue(6, 0, mass_ref->Value() - m_hat); // Error in mass estimation
+    state->SetDataTime(data->DataTime());
     state->ReleaseMutex();
 
     ProcessUpdate(output);
@@ -290,6 +280,8 @@ void MyController::SetValues(Vector3Df pos_error, Vector3Df vel_error, Quaternio
     input->SetValue(2, 5, zppd);
 
     input->ReleaseMutex();
+
+
 
 }
 
