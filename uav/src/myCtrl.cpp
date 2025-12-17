@@ -44,7 +44,8 @@ MyController::MyController(const LayoutPosition *position, const string &name) :
     // m_hat = 0.9;       // initial value of mass   
 
     //Kp.x = 7.5;   Kp.y = 7.5;   Kp.z = 15.5;  
-    //Kd.x = 7;   Kd.y = 7;   Kd.z = 10;   
+    //Kd.x = 7;   Kd.y = 7;   Kd.z = 10;  
+    
 
     g = 9.81;    
 
@@ -152,6 +153,8 @@ void MyController::UpdateFrom(const io_data *data)
     // Integration part (Euler method)
     m_hat += m_hat_dot * delta_t;
 
+    
+
    
     // std::cout << "m_hat: " << m_hat << " m_tilde: " << m_tilde << std::endl; // Print the error in mass estimation
 
@@ -175,7 +178,7 @@ void MyController::UpdateFrom(const io_data *data)
     // PD controller for position control with mass adaptation and desired acceleration
     u.x = m_hat*(xppd.x + Kp_pos_val.x*pos_error.x + Kd_pos_val.x*vel_error.x);
     u.y = m_hat*(xppd.y + Kp_pos_val.y*pos_error.y + Kd_pos_val.y*vel_error.y);
-    u.z = m_hat*(xppd.z + Kp_pos_val.z*pos_error.z + Kd_pos_val.z*vel_error.z - g);
+    u.z = m_hat*(xppd.z + Kp_pos_val.z*pos_error.z + Kd_pos_val.z*vel_error.z );
 
 
     
@@ -198,7 +201,6 @@ void MyController::UpdateFrom(const io_data *data)
     //float comp_mg = -mass->Value()*g; // This is the thrust needed to counteract gravity. Based on the default PID, it should be -0.397918 in Fl-Air simulator.  
     float comp_mg = -m_hat*g; // This is the thrust needed to counteract gravity. Based on the default PID, it should be -0.397918 in Fl-Air simulator.  
     thrust = comp_mg + ctrl_z; // This is the thrust needed to counteract gravity and control the z position
-    applyMotorConstant(thrust);
     //if(thrust < -sat_att->Value())
     //{
     //   thrust = -sat_att->Value();
