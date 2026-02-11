@@ -61,6 +61,7 @@ MyController::MyController(const LayoutPosition *position, const string &name) :
     km = new DoubleSpinBox(general_parameters->NewRow(), "Km adaptation", 0, 5, 0.01, 4, 0.1);
     m_init = new DoubleSpinBox(general_parameters->LastRowLastCol(), "Initial mass [kg]", 0, 10, 0.01, 4, 1.2);
     mass_ref = new DoubleSpinBox(general_parameters->LastRowLastCol(), "Mass reference [kg]", 0, 10, 0.01, 4, 1.2);
+    sigma_mod = new DoubleSpinBox(general_parameters->NewRow(), "Sigma adapt", 0, 1, 0.001, 4, 0.01);
 
     // Custom cartesian position controller
     GroupBox *custom_position = new GroupBox(gui_customPID->NewRow(), "Custom position controller");
@@ -77,12 +78,12 @@ MyController::MyController(const LayoutPosition *position, const string &name) :
 
 
     // Visualize on real time plot
-    massPlot = new DataPlot1D(gui_customPID->NewRow(), "Mass Estimation", 0.0f, 2.0f);
-    massPlot->AddCurve(state->Element(4, 0), DataPlot::Red, "Ref Mass");
-    massPlot->AddCurve(state->Element(5, 0), DataPlot::Blue, "Estimated Mass");
+    //massPlot = new DataPlot1D(gui_customPID->NewRow(), "Mass Estimation", 0.0f, 2.0f);
+    //massPlot->AddCurve(state->Element(4, 0), DataPlot::Red, "Ref Mass");
+    //massPlot->AddCurve(state->Element(5, 0), DataPlot::Blue, "Estimated Mass");
 
-    errorPlot = new DataPlot1D(gui_customPID->LastRowLastCol(), "Error Estimation", -1.0f, 1.0f);
-    errorPlot->AddCurve(state->Element(6, 0), DataPlot::Red, "Error m");
+    //errorPlot = new DataPlot1D(gui_customPID->LastRowLastCol(), "Error Estimation", -1.0f, 1.0f);
+    //errorPlot->AddCurve(state->Element(6, 0), DataPlot::Red, "Error m");
 
 
     resetMassButton = new PushButton(gui_customPID->NewRow(), "Reset Mass Estimation");
@@ -147,8 +148,10 @@ void MyController::UpdateFrom(const io_data *data)
 
     // How to obtain desired acceleration?
 
+    float sigma_a = sigma_mod->Value();
+
     // Adaptation law for mass estimation
-    float m_hat_dot = - km_adapt * ( vel_error.x * (xppd.x - Kp_pos_val.x*pos_error.x - Kd_pos_val.x*vel_error.x) + vel_error.y * (xppd.y - Kp_pos_val.y*pos_error.y - Kd_pos_val.y*vel_error.y) + vel_error.z * (xppd.z - Kp_pos_val.z*pos_error.z - Kd_pos_val.z*vel_error.z + g));
+    float m_hat_dot = - km_adapt * ( vel_error.x * (xppd.x - Kp_pos_val.x*pos_error.x - Kd_pos_val.x*vel_error.x) + vel_error.y * (xppd.y - Kp_pos_val.y*pos_error.y - Kd_pos_val.y*vel_error.y) + vel_error.z * (xppd.z - Kp_pos_val.z*pos_error.z - Kd_pos_val.z*vel_error.z + g)) - sigma_a*(m_hat - m_init->Value());
 
     // Integration part (Euler method)
     m_hat += m_hat_dot * delta_t;
@@ -299,4 +302,16 @@ void MyController::applyMotorConstant(float &signal)
 {
     float motor_constant = k_motor->Value();
     signal = signal/motor_constant;
+}
+
+void MyController::plotEstimatedMass(const LayoutPosition *position) {
+
+    GroupBox *plots_group = new GroupBox(position, "Estimation monitoring");
+
+    DataPlot1D *massPlot = new DataPlot1D(plots_group->NewRow(), "Estimated Mass", 0, 4);
+    massPlot->AddCurve(state->Element(4, 0), DataPlot::Red, "Ref Mass");
+    massPlot->AddCurve(state->Element(5, 0), DataPlot::Blue, "Estimated Mass");
+
+    DataPlot1D *errorPlot = new DataPlot1D(plots_group->LastRowLastCol(), "Estimation error", -1, 1);
+    errorPlot->AddCurve(state->Element(6, 0), DataPlot::Red, "Error m");
 }

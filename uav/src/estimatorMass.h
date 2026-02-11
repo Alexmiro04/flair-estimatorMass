@@ -25,6 +25,7 @@ namespace flair {
         class CheckBox;
         class Vector3DSpinBox;
         class DoubleSpinBox;
+        class Tab;
     }
     namespace filter {
         class TrajectoryGenerator2DCircle;
@@ -48,6 +49,7 @@ class estimatorMass : public flair::meta::UavStateMachine {
     bool initial_circle_traj = false;
     float initial_angle = 0.0f;
     flair::core::Vector2Df initial_circle_pos, circle_center;
+
 
 	enum class BehaviourMode_t {
             Default,
@@ -104,6 +106,7 @@ class estimatorMass : public flair::meta::UavStateMachine {
 
         // Custom control law
         flair::gui::DoubleSpinBox *deltaT_custom;
+        flair::gui::Tab *setup_custom_controller, *graphs_custom_controller;
 
         // Custom task
         flair::gui::ComboBox *task_selection;
