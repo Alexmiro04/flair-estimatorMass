@@ -178,6 +178,12 @@ void estimatorMass::computeMyCtrl(Euler &torques)
     // Example of desired altitude [m] => (ALWAYS A POSITIVE VALUE) 
     // Because the AltitudeValues function returns a positive value also. However, the UAV's altitude is negative in the VRPN coordinate system.
     float altittude_desired = desired_position->Value().z; 
+    
+    // --- PE: dither en Z (suave) ---
+    const float A = 0.05f;        // 5 cm (empieza así)
+    const float f = 0.35f;        // 0.35 Hz (lento)
+    const float t = (float)(double(GetTime())/1e9);   // tiempo en segundos
+    altittude_desired += A * sinf(2.0f*(float)M_PI*f*t);
     float yaw_ref;
     float z, dz;
     AltitudeValues(z, dz);
@@ -367,7 +373,7 @@ void estimatorMass::PositionValues(Vector2Df &pos_error,Vector2Df &vel_error,flo
 
         targetVrpn->GetPosition(target_pos);
         target_pos.To2Dxy(target_2Dpos);
-        circle->SetCenter(target_2Dpos);
+        circle->SetCenter(Vector2Df(0.0f, 0.0f));
 
         //circle reference
         circle->Update(GetTime());

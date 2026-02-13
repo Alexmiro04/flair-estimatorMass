@@ -151,12 +151,25 @@ void MyController::UpdateFrom(const io_data *data)
     float sigma_a = sigma_mod->Value();
 
     // Adaptation law for mass estimation
-    float m_hat_dot = - km_adapt * ( vel_error.x * (xppd.x - Kp_pos_val.x*pos_error.x - Kd_pos_val.x*vel_error.x) + vel_error.y * (xppd.y - Kp_pos_val.y*pos_error.y - Kd_pos_val.y*vel_error.y) + vel_error.z * (xppd.z - Kp_pos_val.z*pos_error.z - Kd_pos_val.z*vel_error.z + g)) - sigma_a*(m_hat - m_init->Value());
+    //float m_hat_dot = - km_adapt * ( vel_error.x * (xppd.x - Kp_pos_val.x*pos_error.x - Kd_pos_val.x*vel_error.x) + vel_error.y * (xppd.y - Kp_pos_val.y*pos_error.y - Kd_pos_val.y*vel_error.y) + vel_error.z * (xppd.z - Kp_pos_val.z*pos_error.z - Kd_pos_val.z*vel_error.z + g)) - sigma_a*(m_hat - m_init->Value());
+
+    // Adaptation law for mass estimation using only vertical dynamics (Z axis).
+    // This keeps the estimator tied to the thrust channel where mass is directly observable.
+    float phi_z = xppd.z + Kp_pos_val.z * pos_error.z + Kd_pos_val.z * vel_error.z - g;
+    float m_hat_dot = km_adapt * (vel_error.z * phi_z) - sigma_a * (m_hat - m_init->Value());
+
+    const float mhat_dot_max = 0.4f; // kg/s (0.2–0.8)
+    if(m_hat_dot >  mhat_dot_max) m_hat_dot =  mhat_dot_max;
+    if(m_hat_dot < -mhat_dot_max) m_hat_dot = -mhat_dot_max;
 
     // Integration part (Euler method)
     m_hat += m_hat_dot * delta_t;
 
-    
+    // Projection to keep a physically meaningful estimate and avoid adaptation runaway.
+    const float min_mass = 0.3f;
+    const float max_mass = 5.0f;
+    if (m_hat < min_mass) m_hat = min_mass;
+    if (m_hat > max_mass) m_hat = max_mass;
 
    
     // std::cout << "m_hat: " << m_hat << " m_tilde: " << m_tilde << std::endl; // Print the error in mass estimation
@@ -179,14 +192,11 @@ void MyController::UpdateFrom(const io_data *data)
     // u.z = mass->Value()*(xppd.z + Kp_pos_val.z*pos_error.z + Kd_pos_val.z*vel_error.z - g);
 
     // PD controller for position control with mass adaptation and desired acceleration
-    u.x = m_hat*(xppd.x + Kp_pos_val.x*pos_error.x + Kd_pos_val.x*vel_error.x);
-    u.y = m_hat*(xppd.y + Kp_pos_val.y*pos_error.y + Kd_pos_val.y*vel_error.y);
-    u.z = m_hat*(xppd.z + Kp_pos_val.z*pos_error.z + Kd_pos_val.z*vel_error.z );
+    u.x = xppd.x + Kp_pos_val.x*pos_error.x + Kd_pos_val.x*vel_error.x;
+    u.y = xppd.y + Kp_pos_val.y*pos_error.y + Kd_pos_val.y*vel_error.y;
+    u.z = xppd.z + Kp_pos_val.z*pos_error.z + Kd_pos_val.z*vel_error.z;
 
-
-    
-
-    float ctrl_z = u.z; // This is the thrust needed to control the z position before saturation
+    float ctrl_z = m_hat * u.z; // This is the thrust needed to control the z position before saturation
     u.Saturate(sat_pos->Value());
 
     
