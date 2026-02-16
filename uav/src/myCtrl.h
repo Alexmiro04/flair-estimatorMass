@@ -45,12 +45,12 @@ namespace flair {
             private : 
                 float delta_t, initial_time;
                 float g = 9.81;
-                float m_hat;
+                float theta_hat;
                 bool first_update;
 
                 flair::core::Matrix *state;
-                flair::gui::Vector3DSpinBox *Kp_pos, *Kd_pos, *Ki_pos, *Kp_att, *Kd_att, *Ki_att;
-                flair::gui::DoubleSpinBox *deltaT_custom, *mass, *k_motor, *sat_pos, *sat_att, *sat_thrust,*km, *m_init, *mass_ref, *sigma_mod;
+                flair::gui::Vector3DSpinBox *Kp_pos, *Kd_pos, *Kp_att, *Kd_att, *Ki_att;
+                flair::gui::DoubleSpinBox *deltaT_custom, *k_motor, *sat_pos, *sat_att, *sat_thrust,*km, *theta_init, *theta_0, *mass_ref, *sigma_mod, *lambda_s;
                 flair::gui::DataPlot1D *massPlot, *errorPlot;
                 flair::gui::PushButton *resetMassButton;
         };

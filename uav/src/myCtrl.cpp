@@ -30,60 +30,45 @@ MyController::MyController(const LayoutPosition *position, const string &name) :
     input = new Matrix(this, 4, 6, floatType, name);
 
     // Matrix descriptor for logging. It should be always a nx1 matrix. 
-    MatrixDescriptor *log_labels = new MatrixDescriptor(7, 1);
+    MatrixDescriptor *log_labels = new MatrixDescriptor(8, 1);
     log_labels->SetElementName(0, 0, "x_error");
     log_labels->SetElementName(1, 0, "y_error");
     log_labels->SetElementName(2, 0, "z_error");
     log_labels->SetElementName(3, 0, "yaw_error");
     log_labels->SetElementName(4, 0, "mass_ref");
-    log_labels->SetElementName(5, 0, "mass_estimated");
-    log_labels->SetElementName(6, 0, "mass_error");
+    log_labels->SetElementName(5, 0, "theta_0");
+    log_labels->SetElementName(6, 0, "theta_hat");
+    log_labels->SetElementName(7, 0, "theta_error");
     state = new Matrix(this, log_labels, floatType, name);
     delete log_labels;
-
-    // m_hat = 0.9;       // initial value of mass   
-
-    //Kp.x = 7.5;   Kp.y = 7.5;   Kp.z = 15.5;  
-    //Kd.x = 7;   Kd.y = 7;   Kd.z = 10;  
     
-
     g = 9.81;    
 
     // GUI for custom PID
     GroupBox *gui_customPID = new GroupBox(position, name);
     GroupBox *general_parameters = new GroupBox(gui_customPID->NewRow(), "General parameters");
     deltaT_custom = new DoubleSpinBox(general_parameters->NewRow(), "Custom dt [s]", 0, 1, 0.001, 4);
-    mass = new DoubleSpinBox(general_parameters->LastRowLastCol(), "Mass [kg]", 0, 10, 0.01, 4, 1.2);
     k_motor = new DoubleSpinBox(general_parameters->LastRowLastCol(), "Motor constant", 0, 50, 0.01, 4, 29.5870);
-    sat_pos = new DoubleSpinBox(general_parameters->NewRow(), "Saturation pos", 0, 10, 0.01, 3);
-    sat_att = new DoubleSpinBox(general_parameters->LastRowLastCol(), "Saturation att", 0, 10, 0.01, 3);
+    sat_pos = new DoubleSpinBox(general_parameters->LastRowLastCol(), "Saturation pos", 0, 10, 0.01, 3);
+    sat_att = new DoubleSpinBox(general_parameters->NewRow(), "Saturation att", 0, 10, 0.01, 3);
     sat_thrust = new DoubleSpinBox(general_parameters->LastRowLastCol(), "Saturation thrust", 0, 10, 0.01, 3);
-    km = new DoubleSpinBox(general_parameters->NewRow(), "Km adaptation", 0, 5, 0.01, 4, 0.1);
-    m_init = new DoubleSpinBox(general_parameters->LastRowLastCol(), "Initial mass [kg]", 0, 10, 0.01, 4, 1.2);
+    km = new DoubleSpinBox(general_parameters->LastRowLastCol(), "Gamma adaptation", 0, 5, 0.01, 4, 0.1);
+    theta_init = new DoubleSpinBox(general_parameters->NewRow(), "Initial Theta [kg]", 0, 10, 0.01, 4, 1.2);
+    theta_0 = new DoubleSpinBox(general_parameters->LastRowLastCol(), "Theta_0 nominal [kg]", 0, 10, 0.01, 4, 1.0);
     mass_ref = new DoubleSpinBox(general_parameters->LastRowLastCol(), "Mass reference [kg]", 0, 10, 0.01, 4, 1.2);
-    sigma_mod = new DoubleSpinBox(general_parameters->NewRow(), "Sigma adapt", 0, 1, 0.001, 4, 0.01);
+    sigma_mod = new DoubleSpinBox(general_parameters->NewRow(), "Sigma", 0, 2, 0.001, 4, 0.01);
+    lambda_s = new DoubleSpinBox(general_parameters->LastRowLastCol(), "Lambda (s=ezdot+lambda*ez)", 0, 10, 0.01, 3, 1.0);
 
     // Custom cartesian position controller
     GroupBox *custom_position = new GroupBox(gui_customPID->NewRow(), "Custom position controller");
     Kp_pos = new Vector3DSpinBox(custom_position->NewRow(), "Kp_pos", 0, 100, 0.1, 3);
     Kd_pos = new Vector3DSpinBox(custom_position->LastRowLastCol(), "Kd_pos", 0, 100, 0.1, 3);
-    Ki_pos = new Vector3DSpinBox(custom_position->LastRowLastCol(), "Ki_pos", 0, 100, 0.1, 3);
 
     // Custom attitude controller
     GroupBox *custom_attitude = new GroupBox(gui_customPID->NewRow(), "Custom attitude controller");
     Kp_att = new Vector3DSpinBox(custom_attitude->NewRow(), "Kp_att", 0, 100, 0.1, 3);
     Kd_att = new Vector3DSpinBox(custom_attitude->LastRowLastCol(), "Kd_att", 0, 100, 0.1, 3);
     Ki_att = new Vector3DSpinBox(custom_attitude->LastRowLastCol(), "Ki_att", 0, 100, 0.1, 3);
-
-
-
-    // Visualize on real time plot
-    //massPlot = new DataPlot1D(gui_customPID->NewRow(), "Mass Estimation", 0.0f, 2.0f);
-    //massPlot->AddCurve(state->Element(4, 0), DataPlot::Red, "Ref Mass");
-    //massPlot->AddCurve(state->Element(5, 0), DataPlot::Blue, "Estimated Mass");
-
-    //errorPlot = new DataPlot1D(gui_customPID->LastRowLastCol(), "Error Estimation", -1.0f, 1.0f);
-    //errorPlot->AddCurve(state->Element(6, 0), DataPlot::Red, "Error m");
 
 
     resetMassButton = new PushButton(gui_customPID->NewRow(), "Reset Mass Estimation");
@@ -100,7 +85,7 @@ MyController::~MyController()
 void MyController::UpdateFrom(const io_data *data)
 {
     float current_time = double(GetTime())/1000000000-initial_time;
-    float thrust = 0.0;
+    float thrust = 0.0f;
     Vector3Df u, tau;
 
     if(deltaT_custom->Value() == 0)
@@ -117,12 +102,12 @@ void MyController::UpdateFrom(const io_data *data)
         initial_time = double(GetTime())/1000000000;
         first_update = false;
 
-        m_hat = m_init->Value(); // Set initial mass estimation
+        theta_hat = 1.0f/theta_init->Value();
     }
 
-    if (resetMassButton->Clicked()) 
+    if (resetMassButton->Clicked())
     {
-        m_hat = m_init->Value(); // Reset estimated mass to initial value
+        theta_hat = 1.0f / theta_init->Value(); // Reset estimated mass to initial value
     }
  
 
@@ -139,37 +124,32 @@ void MyController::UpdateFrom(const io_data *data)
     // Get tunning parameters from GUI
     Vector3Df Kp_pos_val(Kp_pos->Value().x, Kp_pos->Value().y, Kp_pos->Value().z);
     Vector3Df Kd_pos_val(Kd_pos->Value().x, Kd_pos->Value().y, Kd_pos->Value().z);
-    Vector3Df Ki_pos_val(Ki_pos->Value().x, Ki_pos->Value().y, Ki_pos->Value().z);
     Vector3Df Kp_att_val(Kp_att->Value().x, Kp_att->Value().y, Kp_att->Value().z);
     Vector3Df Kd_att_val(Kd_att->Value().x, Kd_att->Value().y, Kd_att->Value().z);
     Vector3Df Ki_att_val(Ki_att->Value().x, Ki_att->Value().y, Ki_att->Value().z);
-    float km_adapt = km->Value();
 
+    const float gamma = km->Value();
+    const float sigma = sigma_mod->Value();
+    const float lambda = lambda_s->Value();
 
-    // How to obtain desired acceleration?
+    float theta_0_val = 1.0f / theta_0->Value();
 
-    float sigma_a = sigma_mod->Value();
+    const float phi_z = xppd.z + Kp_pos_val.z * pos_error.z + Kd_pos_val.z * vel_error.z - g;
+    const float s = vel_error.z + lambda * pos_error.z;
+    const float theta_safe = (theta_hat < 0.05f) ? 0.05f : theta_hat;
+    float theta_hat_dot = -gamma * (s * phi_z / theta_safe) - sigma * std::abs(s) * (theta_hat - theta_0_val);
+    //float theta_hat_dot = gamma * (phi_z / theta_safe) - sigma * s * (theta_hat - theta_0->Value());
 
-    // Adaptation law for mass estimation
-    //float m_hat_dot = - km_adapt * ( vel_error.x * (xppd.x - Kp_pos_val.x*pos_error.x - Kd_pos_val.x*vel_error.x) + vel_error.y * (xppd.y - Kp_pos_val.y*pos_error.y - Kd_pos_val.y*vel_error.y) + vel_error.z * (xppd.z - Kp_pos_val.z*pos_error.z - Kd_pos_val.z*vel_error.z + g)) - sigma_a*(m_hat - m_init->Value());
+    const float theta_dot_max = 0.9f;
+    if(theta_hat_dot >  theta_dot_max) theta_hat_dot =  theta_dot_max;
+    if(theta_hat_dot < -theta_dot_max) theta_hat_dot = -theta_dot_max;
 
-    // Adaptation law for mass estimation using only vertical dynamics (Z axis).
-    // This keeps the estimator tied to the thrust channel where mass is directly observable.
-    float phi_z = xppd.z + Kp_pos_val.z * pos_error.z + Kd_pos_val.z * vel_error.z - g;
-    float m_hat_dot = km_adapt * (vel_error.z * phi_z) - sigma_a * (m_hat - m_init->Value());
+    theta_hat += theta_hat_dot * delta_t;
 
-    const float mhat_dot_max = 0.4f; // kg/s (0.2–0.8)
-    if(m_hat_dot >  mhat_dot_max) m_hat_dot =  mhat_dot_max;
-    if(m_hat_dot < -mhat_dot_max) m_hat_dot = -mhat_dot_max;
-
-    // Integration part (Euler method)
-    m_hat += m_hat_dot * delta_t;
-
-    // Projection to keep a physically meaningful estimate and avoid adaptation runaway.
-    const float min_mass = 0.3f;
-    const float max_mass = 5.0f;
-    if (m_hat < min_mass) m_hat = min_mass;
-    if (m_hat > max_mass) m_hat = max_mass;
+    const float min_theta = 0.2f;
+    const float max_theta = 3.5f;
+    if (theta_hat < min_theta) theta_hat = min_theta;
+    if (theta_hat > max_theta) theta_hat = max_theta;
 
    
     // std::cout << "m_hat: " << m_hat << " m_tilde: " << m_tilde << std::endl; // Print the error in mass estimation
@@ -191,16 +171,20 @@ void MyController::UpdateFrom(const io_data *data)
     // u.y = mass->Value()*(xppd.y + Kp_pos_val.y*pos_error.y + Kd_pos_val.y*vel_error.y);
     // u.z = mass->Value()*(xppd.z + Kp_pos_val.z*pos_error.z + Kd_pos_val.z*vel_error.z - g);
 
-    // PD controller for position control with mass adaptation and desired acceleration
-    u.x = xppd.x + Kp_pos_val.x*pos_error.x + Kd_pos_val.x*vel_error.x;
-    u.y = xppd.y + Kp_pos_val.y*pos_error.y + Kd_pos_val.y*vel_error.y;
-    u.z = xppd.z + Kp_pos_val.z*pos_error.z + Kd_pos_val.z*vel_error.z;
+    float nu_x = (xppd.x + Kp_pos_val.x*pos_error.x + Kd_pos_val.x*vel_error.x);
+    float nu_y = (xppd.y + Kp_pos_val.y*pos_error.y + Kd_pos_val.y*vel_error.y);
+    float nu_z = (xppd.z + Kp_pos_val.z*pos_error.z + Kd_pos_val.z*vel_error.z - g);
 
-    float ctrl_z = m_hat * u.z; // This is the thrust needed to control the z position before saturation
+    // Control = nu / theta_hat
+    u.x = nu_x / theta_hat;
+    u.y = nu_y / theta_hat;
+    u.z = nu_z / theta_hat; // Z se procesa abajo para el thrust
+
+    float ctrl_z = u.z; // This is the thrust needed to control the z position before saturation
     u.Saturate(sat_pos->Value());
 
     
-    std::cout << "error x: " << pos_error.x << " error y: " << pos_error.y << " error z: " << pos_error.z << std::endl;
+    std::cout << "error x: " << pos_error.x << " error y: " << pos_error.y << " error z: " << pos_error.z << "mass_hat: " << (1.0f/theta_hat) << std::endl;
 
     // Attitude custom controller
     Euler rpy = q.ToEuler();    
@@ -210,27 +194,16 @@ void MyController::UpdateFrom(const io_data *data)
     applyMotorConstant(tau);
     tau.Saturate(sat_att->Value());
 
-    // Compute custom thrust
-    //float comp_mg = -mass->Value()*g; // This is the thrust needed to counteract gravity. Based on the default PID, it should be -0.397918 in Fl-Air simulator.  
-    float comp_mg = -m_hat*g; // This is the thrust needed to counteract gravity. Based on the default PID, it should be -0.397918 in Fl-Air simulator.  
-    thrust = comp_mg + ctrl_z; // This is the thrust needed to counteract gravity and control the z position
-    //if(thrust < -sat_att->Value())
-    //{
-    //   thrust = -sat_att->Value();
-    //}
-    //else if(thrust >= 0)
-    //{
-    //    thrust = 0; 
-    //}
-
-    // Apply motor constant to thrust
-    // This is the thrust needed to counteract gravity and control the z position
-    // Changes sat_att to sat_thrust to avoid confusion
+    // float comp_mg = -theta_hat*g;
+    thrust = ctrl_z;
 
     applyMotorConstant(thrust);
-    float thrust_sat = sat_thrust->Value();
-    if(thrust > 0) thrust = 0; // Negative thrust is going up
-    if(thrust < -thrust_sat) thrust = -thrust_sat;
+    float thr_sat = sat_thrust->Value();
+    if(thrust < -thr_sat) {
+      thrust = -thr_sat;
+    } else if(thrust >= 0) {
+        thrust = 0;
+    }
 
     // ---------------------------------------------------------
 
@@ -244,6 +217,8 @@ void MyController::UpdateFrom(const io_data *data)
     output->SetValue(3, 0, thrust);
     output->SetDataTime(data->DataTime());
 
+    float mass_est = 1.0f / theta_hat;
+
     // Log state (example). 
     // Modify the log_labels matrix in the constructor to add more variables.
     state->GetMutex();
@@ -251,9 +226,10 @@ void MyController::UpdateFrom(const io_data *data)
     state->SetValue(1, 0, pos_error.y);
     state->SetValue(2, 0, pos_error.z);
     state->SetValue(3, 0, rpy.YawDistanceFrom(0));
-    state->SetValue(4, 0, mass_ref->Value()); // Reference mass
-    state->SetValue(5, 0, m_hat); // Estimated mass
-    state->SetValue(6, 0, mass_ref->Value() - m_hat); // Error in mass estimation
+    state->SetValue(4, 0, mass_ref->Value());
+    state->SetValue(5, 0, theta_0->Value());
+    state->SetValue(6, 0, mass_est);
+    state->SetValue(7, 0, mass_ref->Value() - mass_est);
     state->SetDataTime(data->DataTime());
     state->ReleaseMutex();
 
@@ -318,10 +294,11 @@ void MyController::plotEstimatedMass(const LayoutPosition *position) {
 
     GroupBox *plots_group = new GroupBox(position, "Estimation monitoring");
 
-    DataPlot1D *massPlot = new DataPlot1D(plots_group->NewRow(), "Estimated Mass", 0, 4);
-    massPlot->AddCurve(state->Element(4, 0), DataPlot::Red, "Ref Mass");
-    massPlot->AddCurve(state->Element(5, 0), DataPlot::Blue, "Estimated Mass");
+    DataPlot1D *massPlot = new DataPlot1D(plots_group->NewRow(), "Estimated Theta", 0, 4);
+    massPlot->AddCurve(state->Element(4, 0), DataPlot::Red, "Mass ref");
+    massPlot->AddCurve(state->Element(5, 0), DataPlot::Green, "Theta_0");
+    massPlot->AddCurve(state->Element(6, 0), DataPlot::Blue, "Theta hat");
 
     DataPlot1D *errorPlot = new DataPlot1D(plots_group->LastRowLastCol(), "Estimation error", -1, 1);
-    errorPlot->AddCurve(state->Element(6, 0), DataPlot::Red, "Error m");
+    errorPlot->AddCurve(state->Element(7, 0), DataPlot::Red, "Error");
 }
