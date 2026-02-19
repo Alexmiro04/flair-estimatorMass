@@ -22,6 +22,10 @@ using namespace flair::core;
 using namespace flair::gui;
 using namespace flair::filter;
 
+namespace {
+    bool theta_initialized = false;
+}
+
 MyController::MyController(const LayoutPosition *position, const string &name) : ControlLaw(position->getLayout(),name,4)
 {
     first_update = true;
@@ -102,12 +106,17 @@ void MyController::UpdateFrom(const io_data *data)
         initial_time = double(GetTime())/1000000000;
         first_update = false;
 
-        theta_hat = 1.0f/theta_init->Value();
+        if(!theta_initialized || !std::isfinite(theta_hat))
+            {
+                theta_hat = 1.0f / theta_init->Value(); // Theta_hat = 1/m_init
+                theta_initialized = true;
+            }
     }
 
     if (resetMassButton->Clicked())
     {
         theta_hat = 1.0f / theta_init->Value(); // Reset estimated mass to initial value
+        theta_initialized = true;
     }
  
 
@@ -132,13 +141,18 @@ void MyController::UpdateFrom(const io_data *data)
     const float sigma = sigma_mod->Value();
     const float lambda = lambda_s->Value();
 
-    float theta_0_val = 1.0f / theta_0->Value();
+    float nu_x = xppd.x + Kp_pos_val.x*pos_error.x + Kd_pos_val.x*vel_error.x;
+    float nu_y = xppd.y + Kp_pos_val.y*pos_error.y + Kd_pos_val.y*vel_error.y;
+    float nu_z = xppd.z + Kp_pos_val.z*pos_error.z + Kd_pos_val.z*vel_error.z - g;
+
+    const float s = vel_error.z + lambda * pos_error.z;
 
     const float phi_z = xppd.z + Kp_pos_val.z * pos_error.z + Kd_pos_val.z * vel_error.z - g;
-    const float s = vel_error.z + lambda * pos_error.z;
+
+    float theta_0_val = 1.0f / theta_0->Value();
     const float theta_safe = (theta_hat < 0.05f) ? 0.05f : theta_hat;
     float theta_hat_dot = -gamma * (s * phi_z / theta_safe) - sigma * std::abs(s) * (theta_hat - theta_0_val);
-    //float theta_hat_dot = gamma * (phi_z / theta_safe) - sigma * s * (theta_hat - theta_0->Value());
+
 
     const float theta_dot_max = 0.9f;
     if(theta_hat_dot >  theta_dot_max) theta_hat_dot =  theta_dot_max;
@@ -151,34 +165,12 @@ void MyController::UpdateFrom(const io_data *data)
     if (theta_hat < min_theta) theta_hat = min_theta;
     if (theta_hat > max_theta) theta_hat = max_theta;
 
-   
-    // std::cout << "m_hat: " << m_hat << " m_tilde: " << m_tilde << std::endl; // Print the error in mass estimation
-
-    // Cartesian custom controller
-
-    // PD controller for position control
-    // u.x = Kp_pos_val.x*pos_error.x + Kd_pos_val.x*vel_error.x;
-    // u.y = Kp_pos_val.y*pos_error.y + Kd_pos_val.y*vel_error.y;
-    // u.z = Kp_pos_val.z*pos_error.z + Kd_pos_val.z*vel_error.z;
-
-    // PD controller for position control with mass compensation
-    // u.x = mass->Value()*( + Kp_pos_val.x*pos_error.x + Kd_pos_val.x*vel_error.x);
-    // u.y = mass->Value()*( + Kp_pos_val.y*pos_error.y + Kd_pos_val.y*vel_error.y);
-    // u.z = mass->Value()*( + Kp_pos_val.z*pos_error.z + Kd_pos_val.z*vel_error.z + g);
-
-    // PD controller for position control with mass compensation and desired acceleration
-    // u.x = mass->Value()*(xppd.x + Kp_pos_val.x*pos_error.x + Kd_pos_val.x*vel_error.x);
-    // u.y = mass->Value()*(xppd.y + Kp_pos_val.y*pos_error.y + Kd_pos_val.y*vel_error.y);
-    // u.z = mass->Value()*(xppd.z + Kp_pos_val.z*pos_error.z + Kd_pos_val.z*vel_error.z - g);
-
-    float nu_x = (xppd.x + Kp_pos_val.x*pos_error.x + Kd_pos_val.x*vel_error.x);
-    float nu_y = (xppd.y + Kp_pos_val.y*pos_error.y + Kd_pos_val.y*vel_error.y);
-    float nu_z = (xppd.z + Kp_pos_val.z*pos_error.z + Kd_pos_val.z*vel_error.z - g);
+    float mass_ctrl_hat = 1.0f/theta_hat;
 
     // Control = nu / theta_hat
-    u.x = nu_x / theta_hat;
-    u.y = nu_y / theta_hat;
-    u.z = nu_z / theta_hat; // Z se procesa abajo para el thrust
+    u.x = mass_ctrl_hat * nu_x;
+    u.y = mass_ctrl_hat * nu_y;
+    u.z = mass_ctrl_hat * nu_z; // Z se procesa abajo para el thrust
 
     float ctrl_z = u.z; // This is the thrust needed to control the z position before saturation
     u.Saturate(sat_pos->Value());

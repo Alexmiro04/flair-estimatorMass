@@ -178,12 +178,6 @@ void estimatorMass::computeMyCtrl(Euler &torques)
     // Example of desired altitude [m] => (ALWAYS A POSITIVE VALUE) 
     // Because the AltitudeValues function returns a positive value also. However, the UAV's altitude is negative in the VRPN coordinate system.
     float altittude_desired = desired_position->Value().z; 
-    
-    // --- PE: dither en Z (suave) ---
-    const float A = 0.05f;        // 5 cm (empieza así)
-    const float f = 0.35f;        // 0.35 Hz (lento)
-    const float t = (float)(double(GetTime())/1e9);   // tiempo en segundos
-    altittude_desired += A * sinf(2.0f*(float)M_PI*f*t);
     float yaw_ref;
     float z, dz;
     AltitudeValues(z, dz);
@@ -299,11 +293,9 @@ void estimatorMass::AltitudeValues(float &z,float &dz) const{
 
     uavVrpn->GetPosition(uav_pos);
     uavVrpn->GetSpeed(uav_vel);
-    // uavVrpn->GetAcceleration(uav_acc);
     //z and dz must be in uav's frame
     z=-uav_pos.z;
     dz=-uav_vel.z;
-    // ddz=-uav_acc.z; // if you want to use acceleration
 }
 
 AhrsData *estimatorMass::GetReferenceOrientation(void) {
@@ -332,15 +324,12 @@ AhrsData *estimatorMass::GetReferenceOrientation(void) {
 void estimatorMass::PositionValues(Vector2Df &pos_error,Vector2Df &vel_error,float &yaw_ref, Vector2Df &circle_acc) {
     Vector3Df uav_pos,uav_vel; // in VRPN coordinate system
     Vector2Df uav_2Dpos,uav_2Dvel; // in VRPN coordinate system
-    // Vector2Df uav_2Dacc; // in VRPN coordinate system
 
     uavVrpn->GetPosition(uav_pos);
     uavVrpn->GetSpeed(uav_vel);
-    // uavVrpn->GetAcceleration(uav_acc);
 
     uav_pos.To2Dxy(uav_2Dpos);
     uav_vel.To2Dxy(uav_2Dvel);
-    // uav_acc.To2Dxy(uav_2Dacc);
 
     if (behaviourMode==BehaviourMode_t::PositionHold) {
         pos_error=uav_2Dpos-posHold;
@@ -359,36 +348,30 @@ void estimatorMass::PositionValues(Vector2Df &pos_error,Vector2Df &vel_error,flo
     else if (behaviourMode==BehaviourMode_t::Regulation) {
         Vector2Df desired_position_xy(desired_position->Value().x, desired_position->Value().y);
         pos_error=uav_2Dpos - desired_position_xy;
-        vel_error=uav_2Dvel; // Why is not minus desired velocity?
-        // vel_error=uav_2Dvel- desired_velocity_xy;
-        //acc_error=uav_2Dacc; // if you want to use acceleration
+        vel_error=uav_2Dvel; 
         yaw_ref=(float)desired_yaw->Value();
         circle_acc.x = 0.0f;
         circle_acc.y = 0.0f;
     }
-    else { //Circle
-        Vector3Df target_pos;
-        Vector2Df circle_pos,circle_vel, circle_acc_ref; //,circle_acc;
-        Vector2Df target_2Dpos;
+    else { // Circle 
+        // Vector3Df target_pos;
+        Vector2Df circle_pos, circle_vel, circle_acc_ref;
+        // Vector2Df target_2Dpos;
 
-        targetVrpn->GetPosition(target_pos);
-        target_pos.To2Dxy(target_2Dpos);
-        circle->SetCenter(Vector2Df(0.0f, 0.0f));
+        // targetVrpn->GetPosition(target_pos);
+        // target_pos.To2Dxy(target_2Dpos);
+        // // circle->SetCenter(target_2Dpos);
+        circle->SetCenter(Vector2Df(0.0, 0.0)); 
 
-        //circle reference
         circle->Update(GetTime());
         circle->GetPosition(circle_pos);
         circle->GetSpeed(circle_vel);
-        circle->GetAcceleration(circle_acc); // Acceleration for circle
+        circle->GetAcceleration(circle_acc); // <--- IMPORTANTE: Guardar en la variable de salida
 
-        //error in optitrack frame
-        pos_error=uav_2Dpos-circle_pos;
-        vel_error=uav_2Dvel-circle_vel;
-        //acc_error=uav_2Dacc-circle_acc; // if you want to use acceleration
-        //yaw_ref=atan2(target_pos.y-uav_pos.y,target_pos.x-uav_pos.x);
+        pos_error = uav_2Dpos - circle_pos;
+        vel_error = uav_2Dvel - circle_vel;
         yaw_ref = 0;
-        //circle_acc = circle_acc_ref;
-
+        circle_acc = circle_acc_ref;
     }
 
     //error in uav frame
@@ -420,12 +403,12 @@ void estimatorMass::SignalEvent(Event_t event) {
 
 void estimatorMass::ExtraSecurityCheck(void) {
     if ((!vrpnLost) && ((behaviourMode==BehaviourMode_t::Circle) || (behaviourMode==BehaviourMode_t::PositionHold))) {
-        if (!targetVrpn->IsTracked(500)) {
-            Thread::Err("VRPN, target lost\n");
-            vrpnLost=true;
-            EnterFailSafeMode();
-            Land();
-        }
+        //if (!targetVrpn->IsTracked(500)) {
+        //    Thread::Err("VRPN, target lost\n");
+        //    vrpnLost=true;
+        //    EnterFailSafeMode();
+        //    Land();
+        //}
         if (!uavVrpn->IsTracked(500)) {
             Thread::Err("VRPN, uav lost\n");
             vrpnLost=true;
